@@ -5,6 +5,8 @@ import Apply from './pages/Apply';
 import Status from './pages/Status';
 import Dashboard from './pages/Dashboard';
 import Review from './pages/Review';
+import Admin from './pages/Admin';
+import Accommodation from './pages/Accommodation';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root not found');
@@ -18,6 +20,8 @@ createRoot(root).render(
         <Route path="/status/:applicationId" element={<Status />} />
         <Route path="/reviewer" element={<Dashboard />} />
         <Route path="/reviewer/:applicationId" element={<Review />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/accommodation" element={<Accommodation />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

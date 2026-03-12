@@ -6,7 +6,7 @@
  */
 
 import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import styles from './Apply.module.css';
 
@@ -175,7 +175,7 @@ export default function Apply() {
         <div className={styles.footer}>
           <p>
             <strong>Need an accommodation?</strong> If you cannot use SMS or email automation,{' '}
-            <a href="mailto:hiring@fairly.com">contact us</a> to arrange a human-led interview alternative.
+            <Link to="/accommodation">request an accommodation</Link> to arrange a human-led interview alternative.
           </p>
         </div>
       </div>

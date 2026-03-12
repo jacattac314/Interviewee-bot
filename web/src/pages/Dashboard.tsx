@@ -86,7 +86,14 @@ export default function Dashboard() {
           <h1 style={{ margin: 0, fontSize: '1.25rem' }}>AI Ops Analyst Pipeline</h1>
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#64748b' }}>{total} total applications</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <Link
+            to="/admin"
+            state={{ reviewerKey }}
+            style={{ color: '#2563eb', fontSize: '0.875rem', textDecoration: 'none', fontWeight: 500, marginRight: '0.5rem' }}
+          >
+            Admin →
+          </Link>
           {['', 'IN_PROGRESS', 'COMPLETE', 'ADVANCED', 'REJECTED'].map((s) => (
             <button
               key={s}

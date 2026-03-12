@@ -122,4 +122,40 @@ export const api = {
       headers: { 'x-reviewer-key': key },
       body: JSON.stringify({ provider }),
     }),
+
+  getMetrics: (key: string) =>
+    request<{
+      applications: { total: number; completed: number; advanced: number; rejected: number };
+      webhooks: Array<{ provider: string; status: string; count: number }>;
+    }>('/admin/metrics', { headers: { 'x-reviewer-key': key } }),
+
+  getRequisitions: (key: string) =>
+    request<Array<{ id: string; title: string; isActive: boolean }>>('/admin/requisitions', {
+      headers: { 'x-reviewer-key': key },
+    }),
+
+  createRequisition: (key: string, title: string, description?: string) =>
+    request<{ id: string; title: string }>('/admin/requisitions', {
+      method: 'POST',
+      headers: { 'x-reviewer-key': key },
+      body: JSON.stringify({ title, description }),
+    }),
+
+  getReviewers: (key: string) =>
+    request<Array<{ id: string; name: string; email: string; role: string }>>('/admin/reviewers', {
+      headers: { 'x-reviewer-key': key },
+    }),
+
+  createReviewer: (key: string, name: string, email: string, role: 'HIRING_MANAGER' | 'RECRUITER') =>
+    request<{ id: string; name: string; email: string }>('/admin/reviewers', {
+      method: 'POST',
+      headers: { 'x-reviewer-key': key },
+      body: JSON.stringify({ name, email, role }),
+    }),
+
+  requestAccommodation: (data: { name: string; email: string; message: string; applicationId?: string }) =>
+    request<{ received: boolean; message: string }>('/accommodation/request', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
