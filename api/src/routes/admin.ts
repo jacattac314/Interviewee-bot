@@ -101,6 +101,92 @@ router.post(
   },
 );
 
+// ── GDPR/CCPA Data Export ─────────────────────────────────────────────────────
+
+router.get('/candidates/:id/export', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  const candidate = await prisma.candidate.findUnique({
+    where: { id },
+    include: {
+      endpoints: {
+        include: {
+          consentEvents: true,
+          sessions: {
+            include: {
+              messages: true,
+              extractedFields: true,
+            },
+          },
+        },
+      },
+      applications: {
+        include: {
+          auditLogs: true,
+        },
+      },
+    },
+  });
+
+  if (!candidate) {
+    res.status(404).json({ error: 'Candidate not found' });
+    return;
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      actor: 'admin',
+      action: 'data_export_requested',
+      details: { candidateId: id },
+    },
+  });
+
+  res.json({ exportedAt: new Date().toISOString(), candidate });
+});
+
+// ── Right to Erasure ──────────────────────────────────────────────────────────
+
+router.delete('/candidates/:id', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { reason } = req.body as { reason?: string };
+
+  const candidate = await prisma.candidate.findUnique({
+    where: { id },
+    include: { endpoints: true },
+  });
+
+  if (!candidate) {
+    res.status(404).json({ error: 'Candidate not found' });
+    return;
+  }
+
+  await prisma.candidate.update({
+    where: { id },
+    data: {
+      primaryEmail: '[REDACTED]',
+      primaryPhone: '[REDACTED]',
+      fullName: '[REDACTED]',
+    },
+  });
+
+  for (const endpoint of candidate.endpoints) {
+    await prisma.endpoint.update({
+      where: { id: endpoint.id },
+      data: { value: '[REDACTED]' },
+    });
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      actor: 'admin',
+      action: 'candidate_data_erased',
+      details: { candidateId: id, reason: reason ?? null },
+    },
+  });
+
+  res.json({ erased: true });
+});
+
 // ── Health / metrics stub ─────────────────────────────────────────────────────
 
 router.get('/metrics', async (_req: Request, res: Response) => {
@@ -123,6 +209,27 @@ router.get('/metrics', async (_req: Request, res: Response) => {
       status: s.signatureStatus,
       count: s._count.id,
     })),
+  });
+});
+
+// ── Retention Report ──────────────────────────────────────────────────────────
+
+router.get('/retention-report', async (req: Request, res: Response) => {
+  const retentionDays = parseInt((req.query.retentionDays as string) ?? '365', 10);
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
+  const candidatesEligibleForErasure = await prisma.application.count({
+    where: {
+      status: { in: ['REJECTED', 'COMPLETE'] },
+      createdAt: { lt: cutoffDate },
+    },
+  });
+
+  res.json({
+    candidatesEligibleForErasure,
+    cutoffDate: cutoffDate.toISOString(),
+    retentionDays,
   });
 });
 

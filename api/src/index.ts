@@ -10,11 +10,13 @@ import multer from 'multer';
 
 import { logger } from './logger';
 import { startWorkers } from './queue/workers';
+import { startTimeoutScheduler } from './interview/scheduler';
 
 // Routes
 import applicationRoutes from './routes/applications';
 import reviewerRoutes from './routes/reviewer';
 import adminRoutes from './routes/admin';
+import accommodationRoutes from './routes/accommodation';
 
 // Webhooks
 import { handleTwilioWebhook } from './webhooks/twilio';
@@ -79,6 +81,7 @@ app.post('/webhooks/lever', handleLeverWebhook);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/reviewer', reviewerRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/accommodation', accommodationRoutes);
 
 // ── Error handler ─────────────────────────────────────────────────────────────
 
@@ -92,6 +95,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(PORT, () => {
   logger.info(`API listening on port ${PORT}`);
   startWorkers();
+  startTimeoutScheduler();
 });
 
 export default app;
