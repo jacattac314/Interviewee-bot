@@ -8,7 +8,6 @@
 
 import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db/client';
 import { logger } from '../logger';
 import { startInterviewSession } from '../interview/orchestrator';
@@ -82,16 +81,17 @@ router.post(
     }));
 
     // Find or create endpoint
-    const endpoint = await prisma.endpoint.upsert({
-      where: { id: uuidv4() }, // force create; we'll look it up differently
-      create: {
+    const existingEndpoint = await prisma.endpoint.findFirst({
+      where: { candidateId: candidate.id, type: channel, value: normalizedValue },
+    });
+    const endpoint = existingEndpoint ?? (await prisma.endpoint.create({
+      data: {
         candidateId: candidate.id,
         type: channel,
         value: normalizedValue,
         status: 'PENDING',
       },
-      update: {},
-    });
+    }));
 
     // Record consent
     const consentVersion = 'v1-2024';
