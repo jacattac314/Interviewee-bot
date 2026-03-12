@@ -1,0 +1,307 @@
+// Interviewee Bot — Data Model
+// Matches the ER diagram from the PRD
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Candidate ───────────────────────────────────────────────────────────────
+
+model Candidate {
+  id           String   @id @default(uuid())
+  fullName     String?
+  primaryEmail String?
+  primaryPhone String?
+  location     String?
+  createdAt    DateTime @default(now())
+
+  endpoints    Endpoint[]
+  applications Application[]
+}
+
+// ─── Endpoint ────────────────────────────────────────────────────────────────
+
+model Endpoint {
+  id          String         @id @default(uuid())
+  candidateId String
+  type        ChannelType
+  value       String         // E.164 phone or email address
+  status      EndpointStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+
+  candidate      Candidate      @relation(fields: [candidateId], references: [id])
+  consentEvents  ConsentEvent[]
+  sessions       InterviewSession[]
+}
+
+// ─── Consent ─────────────────────────────────────────────────────────────────
+
+model ConsentEvent {
+  id                 String   @id @default(uuid())
+  endpointId         String
+  channel            ChannelType
+  consentTextVersion String
+  consentedAt        DateTime @default(now())
+  source             String   // web_form | inbound_msg | email_link
+
+  endpoint Endpoint @relation(fields: [endpointId], references: [id])
+}
+
+// ─── Job Requisition ─────────────────────────────────────────────────────────
+
+model JobRequisition {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  applications Application[]
+}
+
+// ─── Application ─────────────────────────────────────────────────────────────
+
+model Application {
+  id               String            @id @default(uuid())
+  candidateId      String
+  jobRequisitionId String
+  status           ApplicationStatus @default(IN_PROGRESS)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  candidate      Candidate        @relation(fields: [candidateId], references: [id])
+  jobRequisition JobRequisition   @relation(fields: [jobRequisitionId], references: [id])
+  sessions       InterviewSession[]
+  evaluations    Evaluation[]
+  reviewNotes    ReviewNote[]
+  integrationSyncs IntegrationSync[]
+  auditLogs      AuditLog[]
+}
+
+// ─── Interview Session ────────────────────────────────────────────────────────
+
+model InterviewSession {
+  id            String         @id @default(uuid())
+  applicationId String
+  endpointId    String
+  state         SessionState   @default(PENDING)
+  currentStep   String         @default("HANDSHAKE")
+  clarifyCount  Int            @default(0)
+  startedAt     DateTime       @default(now())
+  finishedAt    DateTime?
+  timeoutAt     DateTime?
+
+  application     Application       @relation(fields: [applicationId], references: [id])
+  endpoint        Endpoint          @relation(fields: [endpointId], references: [id])
+  messages        Message[]
+  extractedFields ExtractedField[]
+  testRuns        AutomationTestRun[]
+}
+
+// ─── Message ─────────────────────────────────────────────────────────────────
+
+model Message {
+  id                String      @id @default(uuid())
+  interviewSessionId String
+  direction         Direction
+  channel           ChannelType
+  body              String
+  metadata          Json?       // provider message IDs, subject lines, etc.
+  occurredAt        DateTime    @default(now())
+
+  session InterviewSession @relation(fields: [interviewSessionId], references: [id])
+}
+
+// ─── Extracted Field ─────────────────────────────────────────────────────────
+
+model ExtractedField {
+  id                 String   @id @default(uuid())
+  interviewSessionId String
+  key                String
+  valueText          String?
+  valueJson          Json?
+  confidence         Float?
+  extractedAt        DateTime @default(now())
+
+  session InterviewSession @relation(fields: [interviewSessionId], references: [id])
+}
+
+// ─── Automation Test Run ──────────────────────────────────────────────────────
+
+model AutomationTestRun {
+  id                 String     @id @default(uuid())
+  interviewSessionId String
+  testType           String
+  result             TestResult
+  latencyMs          Int?
+  details            Json?
+  createdAt          DateTime   @default(now())
+
+  session InterviewSession @relation(fields: [interviewSessionId], references: [id])
+}
+
+// ─── Reviewer ────────────────────────────────────────────────────────────────
+
+model Reviewer {
+  id    String       @id @default(uuid())
+  name  String
+  email String       @unique
+  role  ReviewerRole
+
+  scores      Score[]
+  reviewNotes ReviewNote[]
+}
+
+// ─── Evaluation ──────────────────────────────────────────────────────────────
+
+model Evaluation {
+  id            String   @id @default(uuid())
+  applicationId String
+  rubricVersion String   @default("v1")
+  createdAt     DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id])
+  scores      Score[]
+}
+
+// ─── Score ───────────────────────────────────────────────────────────────────
+
+model Score {
+  id           String   @id @default(uuid())
+  evaluationId String
+  reviewerId   String
+  dimension    String
+  score        Int      // 1-5
+  rationale    String?
+  createdAt    DateTime @default(now())
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id])
+  reviewer   Reviewer   @relation(fields: [reviewerId], references: [id])
+}
+
+// ─── Review Note ─────────────────────────────────────────────────────────────
+
+model ReviewNote {
+  id            String   @id @default(uuid())
+  applicationId String
+  reviewerId    String
+  note          String
+  createdAt     DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id])
+  reviewer    Reviewer    @relation(fields: [reviewerId], references: [id])
+}
+
+// ─── Integration ─────────────────────────────────────────────────────────────
+
+model IntegrationConnection {
+  id             String @id @default(uuid())
+  system         String // greenhouse | lever | other
+  credentialsRef Json   // encrypted reference; never store raw secrets here
+
+  syncs IntegrationSync[]
+}
+
+model IntegrationSync {
+  id                    String      @id @default(uuid())
+  applicationId         String
+  integrationConnectionId String
+  status                SyncStatus  @default(QUEUED)
+  lastPayload           Json?
+  lastAttemptAt         DateTime?
+  createdAt             DateTime    @default(now())
+
+  application           Application           @relation(fields: [applicationId], references: [id])
+  integrationConnection IntegrationConnection @relation(fields: [integrationConnectionId], references: [id])
+}
+
+// ─── Webhook Event ───────────────────────────────────────────────────────────
+
+model WebhookEvent {
+  id              String          @id @default(uuid())
+  provider        String          // twilio | sendgrid | greenhouse | lever
+  signatureStatus SignatureStatus @default(VALID)
+  payload         Json
+  receivedAt      DateTime        @default(now())
+}
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  applicationId String?
+  actor         String   // system | reviewer | admin
+  action        String
+  occurredAt    DateTime @default(now())
+  details       Json?
+
+  application Application? @relation(fields: [applicationId], references: [id])
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum ChannelType {
+  SMS
+  EMAIL
+}
+
+enum EndpointStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum ApplicationStatus {
+  IN_PROGRESS
+  COMPLETE
+  REJECTED
+  ADVANCED
+  ON_HOLD
+}
+
+enum SessionState {
+  PENDING
+  HANDSHAKE
+  BACKGROUND
+  COMPENSATION
+  ARCHITECTURE
+  DEBUG_SCENARIO
+  CLOSE
+  DONE
+  TIMEOUT
+  ERROR
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum TestResult {
+  PASS
+  FAIL
+  ERROR
+  TIMEOUT
+}
+
+enum ReviewerRole {
+  HIRING_MANAGER
+  RECRUITER
+}
+
+enum SyncStatus {
+  QUEUED
+  SUCCESS
+  FAILED
+}
+
+enum SignatureStatus {
+  VALID
+  INVALID
+  SKIPPED
+}

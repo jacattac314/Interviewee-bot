@@ -1,0 +1,24 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Apply from './pages/Apply';
+import Status from './pages/Status';
+import Dashboard from './pages/Dashboard';
+import Review from './pages/Review';
+
+const root = document.getElementById('root');
+if (!root) throw new Error('#root not found');
+
+createRoot(root).render(
+  <StrictMode>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/apply" replace />} />
+        <Route path="/apply" element={<Apply />} />
+        <Route path="/status/:applicationId" element={<Status />} />
+        <Route path="/reviewer" element={<Dashboard />} />
+        <Route path="/reviewer/:applicationId" element={<Review />} />
+      </Routes>
+    </BrowserRouter>
+  </StrictMode>,
+);
